@@ -105,6 +105,12 @@ struct task_control_block {
     struct task_control_block  *next;
 };
 
+//@@ add ps using
+struct task_control_block *ptr_tasks;
+
+//
+
+
 /* 
  * pathserver assumes that all files are FIFOs that were registered
  * with mkfifo.  It also assumes a global tables of FDs shared by all
@@ -326,10 +332,10 @@ void serial_readwrite_task()
 	fdin = open("/dev/tty0/in", 0);
 
 	/* Prepare the response message to be queued. */
-	memcpy(str, "Got:", 4);
+	//memcpy(str, "Got:", 4);
 
 	while (1) {
-		curr_char = 4;
+		curr_char = 0;
 		done = 0;
 		do {
 			/* Receive a byte from the RS232 port (this call will
@@ -355,6 +361,18 @@ void serial_readwrite_task()
 		 * response to be sent to the RS232 port.
 		 */
 		write(fdout, str, curr_char+1+1);
+
+		//@@
+		if(str[0] == 'p' && str[1] == 's' && str[2] == '\n'){
+		char *temp;
+			if(ptr_tasks[1].pid == 1)
+				*temp = "1";
+			write(fdout, temp, 5);
+		}
+
+		if(str[0] == 'e' && str[1] == 'c' && str[2] == 'h' && str[3] == 'o' && str[4] == '\n'){
+			write(fdout, "test", 5);
+		}
 	}
 }
 
@@ -366,8 +384,8 @@ void first()
 	if (!fork()) setpriority(0, 0), serialout(USART2, USART2_IRQn);
 	if (!fork()) setpriority(0, 0), serialin(USART2, USART2_IRQn);
 	if (!fork()) rs232_xmit_msg_task();
-	if (!fork()) setpriority(0, PRIORITY_DEFAULT - 10), queue_str_task1();
-	if (!fork()) setpriority(0, PRIORITY_DEFAULT - 10), queue_str_task2();
+//	if (!fork()) setpriority(0, PRIORITY_DEFAULT - 10), queue_str_task1();
+//	if (!fork()) setpriority(0, PRIORITY_DEFAULT - 10), queue_str_task2();
 	if (!fork()) setpriority(0, PRIORITY_DEFAULT - 10), serial_readwrite_task();
 
 	setpriority(0, PRIORITY_LIMIT);
@@ -679,6 +697,9 @@ int main()
 	struct task_control_block *task;
 	int timeup;
 	unsigned int tick_count = 0;
+
+//@@
+	ptr_tasks = tasks;
 
 	SysTick_Config(configCPU_CLOCK_HZ / configTICK_RATE_HZ);
 
