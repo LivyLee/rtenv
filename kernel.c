@@ -5,6 +5,15 @@
 
 #include <stddef.h>
 
+char* itoa(int val)
+{
+	static char buf[32] = {0};
+	int i = 30;
+	for (; val && i ; --i, val /= 10)
+		buf[i] = "0123456789"[val % 10];
+	return &buf[i + 1];
+}
+
 void *memcpy(void *dest, const void *src, size_t n);
 
 int strcmp(const char *a, const char *b) __attribute__ ((naked));
@@ -71,6 +80,13 @@ void puts(char *s)
 #define S_IMSGQ 2
 
 #define O_CREAT 4
+
+#define KEY_PRESS	91
+#define KEY_UP 		65
+#define KEY_DOWN	66
+#define KEY_RIGHT	67
+#define KEY_LEFT	68
+
 
 /* Stack struct of user thread, see "Exception entry and return" */
 struct user_thread_stack {
@@ -325,14 +341,13 @@ void serial_readwrite_task()
 	int fdout, fdin;
 	char str[100];
 	char ch;
-	int curr_char;
+	int curr_char, temp_char;
 	int done;
 
 	fdout = mq_open("/tmp/mqueue/out", 0);
 	fdin = open("/dev/tty0/in", 0);
 
 	/* Prepare the response message to be queued. */
-	//memcpy(str, "Got:", 4);
 
 	while (1) {
 		curr_char = 0;
@@ -341,36 +356,55 @@ void serial_readwrite_task()
 			/* Receive a byte from the RS232 port (this call will
 			 * block). */
 			read(fdin, &ch, 1);
-
-			/* If the byte is an end-of-line type character, then
+			
+				/* If the byte is an end-of-line type character, then
 			 * finish the string and inidcate we are done.
 			 */
 			if (curr_char >= 98 || (ch == '\r') || (ch == '\n')) {
-				str[curr_char] = '\n';
-				str[curr_char+1] = '\0';
+				str[curr_char] = '\0';
 				done = -1;
 				/* Otherwise, add the character to the
 				 * response string. */
-			}
-			else {
+				write(fdout, "\n", 2);
+				write(fdout, "\r", 2);
+			}else if(ch == KEY_PRESS)
+				{
+					read(fdin, &ch, 1);
+					switch(ch){
+					case KEY_UP:
+						write(fdout, "UP", 3);
+					break;
+					case KEY_DOWN:
+						write(fdout, "DOWN", 5);
+					break;
+					case KEY_RIGHT:
+						write(fdout, "RIGHT", 6);
+					break;
+					case KEY_LEFT:
+					write(fdout, "LEFT", 5);
+					break;
+					default:
+					break;
+				};
+			}else {
 				str[curr_char++] = ch;
+				write(fdout, &ch, 1);
 			}
 		} while (!done);
 
 		/* Once we are done building the response string, queue the
 		 * response to be sent to the RS232 port.
 		 */
-		write(fdout, str, curr_char+1+1);
-
-		//@@
-		if(str[0] == 'p' && str[1] == 's' && str[2] == '\n'){
-		char *temp;
-			if(ptr_tasks[1].pid == 1)
-				*temp = "1";
-			write(fdout, temp, 5);
+	//	write(fdout, str, curr_char+1);
+//memset(str, 0, sizeof(char)*100);
+		/* testing cmd ps and echo. */
+		if(strcmp(str,"ps") == 0){
+		char temp[2] = "1";
+	//		if(ptr_tasks[1].pid == 1)
+			write(fdout, temp, 2);
 		}
 
-		if(str[0] == 'e' && str[1] == 'c' && str[2] == 'h' && str[3] == 'o' && str[4] == '\n'){
+		if(strcmp(str,"echo") == 0){
 			write(fdout, "test", 5);
 		}
 	}
