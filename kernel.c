@@ -328,7 +328,7 @@ void queue_str_task(const char *str, int delay)
 
 void queue_str_task1()
 {
-	queue_str_task("Hello 1\n", 200);
+	queue_str_task("Now is in the game!\n\r", 200);
 }
 
 void queue_str_task2()
@@ -344,8 +344,8 @@ void serial_readwrite_task()
 	int curr_char, temp_char;
 	int done;
 	int login = 0;
-	char str_temp[6];
-	char str_help[50] = "Hello, here is all instruction:\n";
+	char str_login[70], str_temp[6];
+	char str_help[70] = "Instructions:\n\rlogin\n\rhelp\n\rclear\n\rgame(*)\n\r";
 	/* 
 	 * user should login and access some service
 	 */
@@ -378,8 +378,7 @@ void serial_readwrite_task()
 				done = -1;
 				/* Otherwise, add the character to the
 				 * response string. */
-				write(fdout, "\n", 2);
-				write(fdout, "\r", 2);
+				write(fdout, "\n\r", 3);
 			}else if(ch == 27) 
 			{
 				read(fdin, &ch, 1);
@@ -427,17 +426,18 @@ void serial_readwrite_task()
 		memset(str_temp, '0', 6);
 		memcpy(str_temp, str, 6);
 		if(strcmp(str_temp,"login") == 0){
+			memset(str_login, '0', 70);
+			sprintf(str_login, "Wellcom ncku! Login is SUCCESS!\n\r");
 			login = 1;
 			memcpy(user_shell, user_name, 4);
-			write(fdout, "SUCCESS!\n", 10);
-			write(fdout, "\r", 2);
+			write(fdout, str_login, strlen(str_login));
 		}
 
 		memset(str_temp, '0', 6);
 		memcpy(str_temp, str, 5);
 		if(login && strcmp(str_temp, "game") == 0)
 		{
-
+			if (!fork()) setpriority(0, PRIORITY_DEFAULT - 10), queue_str_task1();
 		}
 		
 		memset(str_temp, '0', 6);
@@ -445,19 +445,6 @@ void serial_readwrite_task()
 		if(strcmp(str_temp, "help") == 0)
 		{
 			write(fdout, str_help, strlen(str_help));
-			write(fdout, "\r", 2);
-			memset(str_help, '0', 50 );
-			sprintf(str_help, "--- help  : just help!\n");
-			write(fdout, str_help, strlen(str_help));
-			write(fdout, "\r", 2);
-			memset(str_help, '0', 50 );
-			sprintf(str_help, "--- login : user_name/password = ncku/csie.\n");
-			write(fdout, str_help, strlen(str_help));
-			write(fdout, "\r", 2);
-			memset(str_help, '0', 50 );
-			sprintf(str_help, "--- clear : clear screem.\n");
-			write(fdout, str_help, strlen(str_help));
-			write(fdout, "\r", 2);
 		}
 
 		if(strcmp(str,"clear") == 0){
