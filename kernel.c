@@ -340,10 +340,18 @@ void serial_readwrite_task()
 {
 	int fdout, fdin;
 	char str[100];
-	char ch;
+	char ch, out_ch[2] = {0};
 	int curr_char, temp_char;
 	int done;
-
+	int login = 0;
+	char str_temp[6];
+	char str_help[50] = "Hello, here is all instruction:\n";
+	/* 
+	 * user should login and access some service
+	 */
+	char user_name[4] = {'n','c','k','u'}, password[4] = {'c','s','i','e'};
+	char user_shell[7] = {'0','0','0','0','>',' ','\0'};
+	
 	fdout = mq_open("/tmp/mqueue/out", 0);
 	fdin = open("/dev/tty0/in", 0);
 
@@ -352,22 +360,30 @@ void serial_readwrite_task()
 	while (1) {
 		curr_char = 0;
 		done = 0;
+
+		if(login)
+			write(fdout, user_shell, 7);
+		else
+			write(fdout, "Shell> ", 8);
 		do {
 			/* Receive a byte from the RS232 port (this call will
 			 * block). */
 			read(fdin, &ch, 1);
 			
-				/* If the byte is an end-of-line type character, then
+			/* If the byte is an end-of-line type character, then
 			 * finish the string and inidcate we are done.
 			 */
-			if (curr_char >= 98 || (ch == '\r') || (ch == '\n')) {
-				str[curr_char] = '\0';
+			if (curr_char >= 96 || (ch == '\r') || (ch == '\n')) {
+				str[curr_char]   = '\0';
 				done = -1;
 				/* Otherwise, add the character to the
 				 * response string. */
 				write(fdout, "\n", 2);
 				write(fdout, "\r", 2);
-			}else if(ch == KEY_PRESS)
+			}else if(ch == 27) 
+			{
+				read(fdin, &ch, 1);
+				if(ch == KEY_PRESS)
 				{
 					read(fdin, &ch, 1);
 					switch(ch){
@@ -381,31 +397,87 @@ void serial_readwrite_task()
 						write(fdout, "RIGHT", 6);
 					break;
 					case KEY_LEFT:
-					write(fdout, "LEFT", 5);
+						write(fdout, "LEFT", 5);
 					break;
 					default:
 					break;
-				};
-			}else {
+					};
+				}
+			}else if(ch == '\x7f' || ch == '\b') /* backspace  */
+			{
+				if(curr_char > 0)
+				{
+					str[--curr_char] = 0;
+					write(fdout, "\b", 2);
+					write(fdout, " ", 2);	
+					write(fdout, "\b", 2);
+				}	
+			}else{
 				str[curr_char++] = ch;
-				write(fdout, &ch, 1);
+				out_ch[0] = ch;	
+				write(fdout, out_ch, 2);
 			}
 		} while (!done);
 
 		/* Once we are done building the response string, queue the
 		 * response to be sent to the RS232 port.
 		 */
-	//	write(fdout, str, curr_char+1);
-//memset(str, 0, sizeof(char)*100);
-		/* testing cmd ps and echo. */
-		if(strcmp(str,"ps") == 0){
-		char temp[2] = "1";
-	//		if(ptr_tasks[1].pid == 1)
-			write(fdout, temp, 2);
+		/* testing clear and login. */
+
+		memset(str_temp, '0', 6);
+		memcpy(str_temp, str, 6);
+		if(strcmp(str_temp,"login") == 0){
+			login = 1;
+			memcpy(user_shell, user_name, 4);
+			write(fdout, "SUCCESS!\n", 10);
+			write(fdout, "\r", 2);
 		}
 
-		if(strcmp(str,"echo") == 0){
-			write(fdout, "test", 5);
+		memset(str_temp, '0', 6);
+		memcpy(str_temp, str, 5);
+		if(login && strcmp(str_temp, "game") == 0)
+		{
+
+		}
+		
+		memset(str_temp, '0', 6);
+		memcpy(str_temp, str, 5);
+		if(strcmp(str_temp, "help") == 0)
+		{
+			write(fdout, str_help, strlen(str_help));
+			write(fdout, "\r", 2);
+			memset(str_help, '0', 50 );
+			sprintf(str_help, "--- help  : just help!\n");
+			write(fdout, str_help, strlen(str_help));
+			write(fdout, "\r", 2);
+			memset(str_help, '0', 50 );
+			sprintf(str_help, "--- login : user_name/password = ncku/csie.\n");
+			write(fdout, str_help, strlen(str_help));
+			write(fdout, "\r", 2);
+			memset(str_help, '0', 50 );
+			sprintf(str_help, "--- clear : clear screem.\n");
+			write(fdout, str_help, strlen(str_help));
+			write(fdout, "\r", 2);
+		}
+
+		if(strcmp(str,"clear") == 0){
+			int i = 0, j, flag = 0;
+			for(i ; i < 19 ; i++)
+			{
+				
+				for(j = 0 ; j < 100 ; j++){
+					if(flag == 0)
+					{
+						write(fdout, "\b", 2);
+						write(fdout, " ", 2);	
+						write(fdout, "\b", 2);
+					}else
+						write(fdout, " ", 2);
+				}
+				write(fdout, "\033[A", 4);
+				write(fdout, "\033[A", 4);
+				flag = (flag==0)?1:0;
+			}
 		}
 	}
 }
